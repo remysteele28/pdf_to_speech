@@ -1,17 +1,25 @@
+import os, pydub, pdfplumber
+from google.cloud import texttospeech_v1
+from pydub import AudioSegment
+
+if os.path.isfile(./tospeech.txt):
+    with open("./tospeech.txt","r") as f:
+        tospeech = f.read()
+else:
+\
+\
 pdf_path = '/Users/remysteele/Documents/UMASS/UMASS SPRING 2023/ANTHRO 103/MISC/Explorations-An-Open-Invitation-To-Biological-Anthropology-Shook, Nelson.pdf'
+
+
 
 start_page = 274
 end_page = 305
 
 choose_bitrate = '320k'                                                                 # Lessen the bitrate to create a smaller filesize. Less than 32k is not the best
 
-desired_output_filename = 'ANTHRO 103 - CH 8'                                         # Enter an output filename
+desired_output_filename = ''                                                        # Enter an output filename
 
 path_to_key = '/Users/remysteele/.config/gcloud/plucky-paratext-379015-abf653d0df1f.json'
-
-import os, pydub, pdfplumber
-from google.cloud import texttospeech_v1
-from pydub import AudioSegment
 
 pdf = pdfplumber.open(pdf_path)
 
@@ -29,10 +37,13 @@ os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = path_to_key
 client = texttospeech_v1.TextToSpeechClient()
 combined_sounds = AudioSegment.empty()
 
+text = text.replace("^s", " ").replace("^t", "    ").replace('•', ".").replace("\n", " ")
 
-text = text[20:]
+text = text.replace("U+0093", " ").replace("U+0094", "    ")
 
-char_limit = 4500                                                                       # Google only allows each request to be 5000 bytes > about 5 minutes of audio
+characters = list(text)                                                                   # Split text into a list characters
+
+size_limit=4950
 
 def convert(s):                                                                         # Function to concatinate a list of characters
  
@@ -46,17 +57,43 @@ def convert(s):                                                                 
     # return string
     return new
 
-text = text.replace("^s", " ").replace("^t", "    ").replace('•', " ")
+def split_text():
+    char_groups = []
 
-text = text.replace("U+0093", " ").replace("U+0094", "    ")
+    k = 0
 
-characters = list(text)                                                            # Split text into a list characters
+    loops = int(len(characters)/size_limit)
 
-for i in range(int(len(characters)/char_limit)+2):                                      # Loop through the first 4500 characters, then the next 4500...
+    current_group = ""
 
-        b = convert(characters[(char_limit*i-10*i):(char_limit+char_limit*i-10*i)])     # Convert the first 4500 characters in the list back into a string. Then, convert the next 4500 characters,
-                                                                                        # with a small 10 character buffer so that the word is guarenteed to be understood
-        text = "<speak>"+b+"</speak>"                                                   # make the string ssml compatible
+    remaining_chars = len(characters)
+
+    for i in range(loops):
+        for j in range(size_limit):
+            current_group = current_group + characters[k]
+            k += 1
+        current_list = list(current_group)
+        while current_list[-1] != ' ':
+            current_list.pop()
+            k -= 1
+        current_list.pop()
+        k -= 1
+        char_groups = char_groups + [convert(current_list)]
+        remaining_chars = remaining_chars - len(convert(current_list))
+        current_group = ""
+
+
+    for i in range(remaining_chars):
+        current_group = current_group + characters[k]
+        k += 1
+    char_groups = char_groups + [current_group]
+    return char_groups
+
+b = split_text()
+
+for i in range(int(len(characters)/size_limit)+1):                                      # Loop through the first 4500 characters, then the next 4500...
+
+        text = "<speak>"+b[i]+"</speak>"                                                   # make the string ssml compatible
 
         synthesis_input = texttospeech_v1.SynthesisInput(ssml=text)
 
@@ -83,6 +120,6 @@ for i in range(int(len(characters)/char_limit)+2):                              
 combined_sounds.export("{}.mp3".format(desired_output_filename),\
                         format="mp3", bitrate = choose_bitrate)                         # Concatinate and convert the audio files simultaneously
 
-for i in range(int(len(characters)/char_limit)+2):                                      # Delete the seperated audio files from harddrive
+for i in range(int(len(characters)/size_limit)+1):                                      # Delete the seperated audio files from harddrive
 
         os.remove('text_to_speech_audio%.i.wav'%i)
