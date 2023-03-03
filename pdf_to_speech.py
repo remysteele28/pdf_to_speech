@@ -21,6 +21,7 @@ smallest_font_sixe = 9          ################################################
 import os, pydub, pdfplumber, glob, ntpath
 from google.cloud import texttospeech_v1
 from pydub import AudioSegment
+import re
 
 os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = path_to_key                                            
 client = texttospeech_v1.TextToSpeechClient()
@@ -71,8 +72,6 @@ for p in range(len(filenames)):
 
     characters = list(text)                                                        # Split text into a list characters
 
-    size_limit = 2500
-
     def convert(s):                                                                # Function to concatinate a list of characters back to a string
 
         x = ""
@@ -83,33 +82,7 @@ for p in range(len(filenames)):
         return x
 
     def split_text():                                                               # Split text into groups in order to stay below Google's package
-        char_groups = []                                                            # size limit
-        current_list = []
-        k = 0                                                                       # Character index
-        current_group = ""
-        remaining_chars = len(characters)                                           # Keep track of remaining characters in order to fill the last group
-        loops = int(len(characters)/size_limit)                                     # Number of groups
-
-        for i in range(loops):                                                      # Fill the groups
-            for j in range(size_limit):
-                current_group = current_group + characters[k]
-                k += 1
-            current_list = list(current_group)
-
-            while current_list[-1] != '.':                                          # Delete the partial word at the end of the group
-                current_list.pop()
-                k -= 1                                                              # Delete the index number as well so the word starts the next group
-
-            char_groups = char_groups + [convert(current_list)]
-            remaining_chars = remaining_chars - len(convert(current_list))
-            current_group = ""
-
-        for i in range(remaining_chars):                                            # Fill the last group
-            current_group = current_group + characters[k]
-            k += 1
-
-        char_groups = char_groups + [current_group]
-    
+        char_groups = re.findall(r".{0,2500}\S*", text)  
         return char_groups
 
     b = split_text()
