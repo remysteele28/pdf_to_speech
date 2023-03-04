@@ -4,3 +4,4 @@ send2trash
 google-cloud-texttospeech
 ffmpeg
 ffmpeg-python
+curses-util
