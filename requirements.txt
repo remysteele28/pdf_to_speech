@@ -1,0 +1,5 @@
+pydub
+pdfplumber
+send2trash
+google-cloud-texttospeech
+ffmpeg-python
