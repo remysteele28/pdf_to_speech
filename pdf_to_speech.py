@@ -1,24 +1,89 @@
 #########################################################################################################################################################
 #####################################  THIS PROGRAM WILL RENDER ALL OF THE .PDFs IN YOUR CURRENT DIRECTORY TO .MP3s  ####################################
 #########################################################################################################################################################
+                                #                                                                                                                       #
+pdf_path = 'ENTER_PATH_HERE'    ###################################################### If there are no pdfs in your current directory, you can          # 
+                                #                                                      specify a path here                                              #
+start_page = 400                  ###################################################### Enter the page range you wish to render.                         #
+                                #                                                                                                                       #
+end_page = 407                    ###################################################### If you leave end_page equal to 0, then it renders all pages      #
+                                #                                                                                                                       #
+choose_bitrate = '320k'         ###################################################### Lessen the bitrate to create a smaller filesize. Less than 32k   #
+                                #                                                      is not the best, more than 320 is unnecessary                    #
+path_to_key = '/Users/remysteele/.config/gcloud/plucky-paratext-379015-abf653d0df1f.json'        ######################################################### Ender the key.json path                                       #
+                                #                                                                                                                       #
+smallest_font_size = 9        ###################################################### Remove text smaller than this size (footnotes, figure captions)  #
+                                #                                                                                                                       #
+largest_font_size = 17          ###################################################### Remove text smaller than this size (footnotes, figure captions)  #
+                                #                                                                                                                       #
+test_page = 0                   #########################################################################################################################
+                                #                                                                                                                       #
+test_text = True               #########################################################################################################################
                                 #
-pdf_path = 'ENTER_PATH_HERE'    ######################################################### If there are no pdfs in your current directory, you can specify
-                                #                                                         a path here
-start_page = 0                  ######################################################### Enter the page range you wish to render. 
-                                #                                                         
-end_page = 0                    ######################################################### If you leave end_page equal to 0, then it renders all pages
+x_tolerance = 0.8                   #########################################################################################################################
+                                #                                                                                                                       #
+y_tolerance = 6               #########################################################################################################################
                                 #
-choose_bitrate = '320k'         ######################################################### Lessen the bitrate to create a smaller filesize. Less than 32k
-                                #                                                         is not the best, more than 320 is unnecessary
-path_to_key = 'REDACTED'        ######################################################### Ender the key.json path
-                                #
-smallest_font_sixe = 9          ######################################################### Remove text smaller than this size (footnotes, figure captions)
-                                #
-##########################################################################################################################################################
+#########################################################################################################################################################
 #########################################################################################################################################################
 #########################################################################################################################################################
 
-import os, pydub, pdfplumber, glob, ntpath
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import os, pydub, pdfplumber, glob, ntpath, sys, re
+from send2trash import send2trash
 from google.cloud import texttospeech_v1
 from pydub import AudioSegment
 
@@ -27,10 +92,35 @@ client = texttospeech_v1.TextToSpeechClient()
 current_directory = str(os.getcwd())
 filepaths = glob.glob("{}/*.pdf".format(current_directory))
 filenames = []
+voice = texttospeech_v1.VoiceSelectionParams (
+    language_code = 'en-us',                                                # Select accent
+    name = 'en-US-Neural2-G',                                               # Select the voice. The voices can be previewed on the Google text-to-speech API's website
+    ssml_gender = texttospeech_v1.SsmlVoiceGender.FEMALE)
+audio_config = texttospeech_v1.AudioConfig(
+    audio_encoding = texttospeech_v1.AudioEncoding.LINEAR16)                 # Exports a WAV file to preserve quality
+
+def convert(s):
+    x = ""                                                                          # Function to concatinate a list of characters back to a string
+    for y in s:
+        x += y
+    return x
 
 def path_leaf(path):
     head, tail = ntpath.split(path)                                                 # A function that rips the filename from the path that works on all
     return tail or ntpath.basename(head)                                            # operating systems
+
+def filter(page):
+    filtered_page = page.filter(lambda obj: not \
+                    (obj["object_type"] == "char" and obj["size"] < smallest_font_size))       # Filter out small characters
+    filtered_page = filtered_page.filter(lambda obj: not \
+                    (obj["object_type"] == "char" and obj["size"] > largest_font_size))
+    return filtered_page
+
+def show_image(page):
+    im = page.to_image(resolution=100)
+    im.draw_rects(page.extract_words(\
+    x_tolerance=x_tolerance,y_tolerance = y_tolerance,keep_blank_chars=False))
+    im.show()
 
 if len(filepaths) == 0:
     filepaths = [pdf_path]                                                          # If there are no pdfs in the current directory, use pdf_path
@@ -45,91 +135,79 @@ for p in range(len(filenames)):
 
     pdf_path = str(filepaths[p])
     output_filename = str(filenames[p]).replace('.pdf','')
+
+    print('\n Starting render of {}\n'.format(output_filename))
+
     pdf = pdfplumber.open(pdf_path)
 
     if end_page == 0:
         pages = pdf.pages
     else:
-        pages = pdf.pages[start_page:end_page]
+        pages = pdf.pages[start_page-1:end_page-1]
 
     text = ""
 
+    if test_page == 'ALL':
+        for i in range(len(pages)):
+            show_image(filter(pages[i]))
+        cont = input("Continue? y/n \n")
+        if cont != 'y':
+            sys.exit("Try again!\n")
+    elif isinstance(test_page, int):
+        show_image(filter(pages[test_page]))
+        cont = input("Continue? y/n \n")
+        if cont != 'y':
+            sys.exit("Try again!\n")
+    elif isinstance(test_page, list):
+        page_range = test_page[1]-test_page[0]
+        for i in range(page_range):
+            show_image(filter(pages[test_page[0]+i]))
+        cont = input("Continue? y/n \n")
+        if cont != 'y':
+            sys.exit("Try again!\n")
+
+    
     for i in range(len(pages)):
 
         filtered_page = pages[i].filter(lambda obj: not \
-            (obj["object_type"] == "char" and obj["size"] < smallest_font_sixe))    # Filter out small characters
+            (obj["object_type"] == "char" and obj["size"] < smallest_font_size))    # Filter out small characters
+        filtered_page = filtered_page.filter(lambda obj: not \
+            (obj["object_type"] == "char" and obj["size"] > largest_font_size))
         text = text + ' ' + filtered_page.extract_text(\
-            x_tolerance=1,keep_blank_chars=False)                                   # These extraction parameters work pretty well
+            x_tolerance=.8,y_tolerance = 3,keep_blank_chars=False)                  # These extraction parameters work pretty well
         pages[i].flush_cache()
 
-                                                                                    # Wash text of characters that wont be spoken
+    text =text.replace("^s", "").replace("^t", "").replace('•', ".").replace\
+        ("\n", " ").replace("—", " ").replace("\r", " ").replace("'","").replace\
+        ("\u0093", " ").replace("\u0094", "").replace("\u2019", "").replace\
+        ("\u201c", " ").replace(":",".").replace('"',"").replace('&','').replace\
+        ("'",'').replace('<','').replace('>','').replace(';',",").replace('- ',"")\
+        .replace('[','').replace(']','').replace('-'," ")
+    text = text.encode('ascii',"ignore").decode('unicode-escape')                   # Wash text of characters that wont be spoken
 
-    text =text.replace("^s", "").replace("^t", "").replace('•', ".").replace("\n", " ").replace("—", " ").replace("\r", " ").replace("'","")\
-    #     .replace("\u0093", " ").replace("\u0094", "").replace("\u2019", "").replace("\u201c", " ").replace(":",".")\
-    #     .replace('"',"").replace('&','').replace("'",'').replace('<','').replace('>','').replace(';',",").replace('- ',"")
-    text = text.encode('ascii',"ignore").decode('unicode-escape')
+    regex = r"(?<=[A-Z][A-Z])[\s](?=[A-Z][a-z])|(?<=[a-z][a-z])[\s](?=[A-Z][A-Z])"
+    subst = ". "
+    text = re.sub(regex, subst, text, 0)
 
-    characters = list(text)                                                        # Split text into a list characters
+    characters = list(text)                                                         # Split text into a list characters
 
-    size_limit = 2500
+    b = re.findall(r".{0,4000}[.]", text)
 
-    def convert(s):                                                                # Function to concatinate a list of characters back to a string
-
-        x = ""
-
-        for y in s:
-            x += y
-
-        return x
-
-    def split_text():                                                               # Split text into groups in order to stay below Google's package
-        char_groups = []                                                            # size limit
-        current_list = []
-        k = 0                                                                       # Character index
-        current_group = ""
-        remaining_chars = len(characters)                                           # Keep track of remaining characters in order to fill the last group
-        loops = int(len(characters)/size_limit)                                     # Number of groups
-
-        for i in range(loops):                                                      # Fill the groups
-            for j in range(size_limit):
-                current_group = current_group + characters[k]
-                k += 1
-            current_list = list(current_group)
-
-            while current_list[-1] != '.':                                          # Delete the partial word at the end of the group
-                current_list.pop()
-                k -= 1                                                              # Delete the index number as well so the word starts the next group
-
-            char_groups = char_groups + [convert(current_list)]
-            remaining_chars = remaining_chars - len(convert(current_list))
-            current_group = ""
-
-        for i in range(remaining_chars):                                            # Fill the last group
-            current_group = current_group + characters[k]
-            k += 1
-
-        char_groups = char_groups + [current_group]
-    
-        return char_groups
-
-    b = split_text()
+    if test_text == True:
+        print("\n",b, "\n")
+        cont = input("Continue? y/n \n")
+        if cont != 'y':
+            sys.exit("Try again!\n")
 
     combined_sounds = AudioSegment.empty()
 
-    for i in range(int(len(characters)/size_limit)+1):                              # Loop through the first 4500 characters, then the next 4500...
+    print("\nRendering {} chuncks\n\n0 %".format(len(b)))
 
+    for i in range(len(b)):                                                         # Loop through chunks, sending to google
         text = "<speech>" + b[i] + "</speech>"                                      # make the string ssml compatible
 
         synthesis_input = texttospeech_v1.SynthesisInput(ssml=text)
 
-        voice = texttospeech_v1.VoiceSelectionParams (
-            language_code = 'en-us',                                                # Select accent
-            name = 'en-US-Neural2-G',                                               # Select the voice. The voices can be previewed on the Google text-to-speech API's website
-            ssml_gender = texttospeech_v1.SsmlVoiceGender.FEMALE
-        )
-        audio_config = texttospeech_v1.AudioConfig(
-            audio_encoding = texttospeech_v1.AudioEncoding.LINEAR16                 # Exports a WAV file to preserve quality
-        )
         response = client.synthesize_speech (                                       # Make Google do things
             input = synthesis_input,
             voice = voice,
@@ -141,12 +219,15 @@ for p in range(len(filenames)):
         sound = (AudioSegment.from_wav('text_to_speech_audio%.i.wav'%i))
 
         combined_sounds = combined_sounds+sound                                     # Create a list of the seperated audio files
+        print("{} %".format(int(100*(i+1)/len(b))))
 
     combined_sounds.export("{}.mp3".format(output_filename),\
                             format="mp3", bitrate = choose_bitrate)                 # Concatinate and convert the audio files simultaneously
 
-    for i in range(int(len(characters)/size_limit)+1):                              # Delete the seperated audio files from harddrive
+    for i in range(len(b)):                                                         # Delete the seperated audio files from harddrive
 
         os.remove('text_to_speech_audio%.i.wav'%i)
 
-    print(str(filenames[p]).replace('.pdf','.mp3'),'complete')
+    cont = input('{} has been rendered. Trash PDF? y/n \n'.format(filenames[p]).replace('.pdf','.mp3'))
+    if cont == 'y':
+        send2trash(filepaths[p])
