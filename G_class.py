@@ -28,10 +28,6 @@ class Gsession:
             audio_encoding = texttospeech_v1.AudioEncoding.LINEAR16)
 
     def render(self, b, filename, bitrate, p):
-        print("Rendering")
-        print("filename: " + filename)
-        print("bitrate: " + bitrate)
-        print("p: " + str(p))
         combined_sounds = AudioSegment.empty()
         for i in range(len(b)):                                                         # Loop through chunks, sending to google individually
             text = "<speech>" + b[i] + "</speech>"                                      # make the string ssml compatible
